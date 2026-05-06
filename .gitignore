@@ -1,0 +1,26 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Large LAMMPS output data
+*.dump
+*.data
+restart*.checkpoint*
+input.file
+log.lammps
+
+# PyTorch dataset files
+*.pt
+*.pth
+
+# Numpy array files
+*.npy
+
+# Large media files
+*.mp4
+
+# Sensitive files
+secret_train.py

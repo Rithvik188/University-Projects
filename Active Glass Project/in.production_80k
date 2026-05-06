@@ -1,0 +1,90 @@
+units		lj
+dimension	2
+atom_style      hybrid dipole sphere 
+boundary	p p p
+#newton off
+
+variable damp index 1.0
+variable a_force index 1.0
+variable dumpfile index trajectory_80k.dump
+variable output index final_80k.data
+
+# WCA potential (purely repulsive)
+pair_style lj/cut 2.5
+pair_modify shift yes
+
+read_data	input.file
+velocity        all set 0.0 0.0 0.0 units box
+
+# Set all Z-coordinates to exactly 0.0
+set             group all z 0.0
+
+set             group all mass 1.0
+set             group all diameter 1.0
+
+neighbor  1.0 bin
+neigh_modify    delay 0 every 1 check yes
+comm_modify     mode single cutoff 5.0
+
+reset_timestep 0
+timestep	0.001
+
+pair_coeff * * 1.0 1.0 1.1224
+
+compute         myTemp all temp
+compute         Tempx all temp/partial 1 0 0
+compute         Tempy all temp/partial 0 1 0
+compute         myVirial all pressure myTemp virial
+compute         lstress all stress/atom NULL virial
+compute         peratom all pe/atom
+compute         1 all pe/atom
+compute         pe all reduce sum c_peratom
+compute         ord all hexorder/atom
+compute         voronoi all voronoi/atom
+
+compute         msd all msd com yes
+
+variable        sxx equal -c_myVirial[1]           
+variable        syy equal -c_myVirial[2]           
+variable        sxy equal -c_myVirial[4]           
+
+fix             twod all enforce2d
+fix             f5 all ave/atom 1 1 1 c_ord[1] c_ord[2]
+
+group A type 1
+group B type 2
+
+compute ke1 A ke
+compute ke2 B ke
+
+############## Inherent Structure at T=0 #################
+##
+velocity        all set 0.0 0.0 0.0 units box
+fix             twod all enforce2d
+min_style       cg
+minimize        1.0e-12 1.0e-12 1000000 1000000  #ETolerance FTolerance MaxIteration MaxEnergyEvaluation
+#reset_timestep  0
+###########################################################
+#
+
+fix 		2 all nve/sphere disc
+fix		1 all langevin 0.0 0.0 ${damp} 234567
+fix             active all propel/self dipole ${a_force}
+
+fix             twod all enforce2d
+
+run   50000
+
+dump            id all custom 1 ${dumpfile} id type x y mux muy c_voronoi[1] c_ord[1] c_ord[2]
+dump_modify     id sort 1 every 10000
+
+restart         50000 restart.checkpoint
+
+#------------------------ Thermo stuff ---------------------------------------#
+  thermo            1000
+  thermo_style      custom step temp etotal pe ke c_ke1 c_ke2 press vol c_msd[1] c_msd[2] c_msd[4]  # Output.
+  run_style         verlet
+#------------------------------------------------------------------------------#
+
+run	         500000
+write_data	${output}
