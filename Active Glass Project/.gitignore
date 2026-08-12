@@ -1,0 +1,6 @@
+*.dump
+*.dump.*
+*.dump*
+*.data
+*.npy
+*.pt
